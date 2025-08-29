@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+  <meta charset="UTF-8">
+  <title>Quản lý bệnh nhân</title>
+  <style>
+    /* CSS dạng cây thư mục */
+    .tree ul {
+      list-style-type: none;
+      margin-left: 20px;
+      padding-left: 10px;
+      border-left: 1px dashed #999;
+    }
+    .tree li {
+      cursor: pointer;
+      margin: 4px 0;
+    }
+    .tree li:hover {
+      color: darkblue;
+      font-weight: bold;
+    }
+    .empty {
+      color: gray;
+      font-style: italic;
+    }
+    .active-visit {
+  background: #cce5ff;
+  font-weight: bold;
+  color: #004085;
+  border-radius: 4px;
+}
+  </style>
+</head>
+<head>
+  <meta charset="UTF-8">
+  <title>Clinic DB Viewer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
+  <style>
+    body { margin:0; font-family: Arial, sans-serif; display:flex; height:100vh; }
+    #sidebar {
+      width: 300px; background:#f4f4f4; border-right:1px solid #ccc; padding:10px; overflow-y:auto;
+    }
+    #main {
+      flex:1; padding:20px; overflow-y:auto;
+    }
+    .patient { cursor:pointer; padding:5px; font-weight:bold; }
+    .patient:hover { background:#ddd; }
+    .visits { margin-left:15px; }
+    .visit { cursor:pointer; padding:3px; }
+    .visit:hover { background:#eee; }
+    #searchBox { width:100%; padding:5px; margin-bottom:10px; }
+    table { border-collapse:collapse; width:100%; margin-top:10px; }
+    th, td { border:1px solid #ccc; padding:5px; text-align:left; }
+    th { background:#eee; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <input type="file" id="dbfile" />
+    <input type="text" id="searchBox" placeholder="Tìm bệnh nhân...">
+    <div id="patientsList"></div>
+  </div>
+  <div id="main">
+    <h2>Chi tiết khám bệnh</h2>
+    <div id="visitDetail">Chọn bệnh nhân và lần khám để xem chi tiết.</div>
+  </div>
+
+  <script>
+    let db = null;
+
+    // Load file SQLite
+    document.getElementById("dbfile").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const data = new Uint8Array(await file.arrayBuffer());
+        const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${f}` });
+        db = new SQL.Database(data);
+        renderPatients();
+      }
+    });
+
+    // Render danh sách bệnh nhân
+    function renderPatients(filter="") {
+      if (!db) return;
+      const query = `
+        SELECT PatientId, FullName, Phone
+        FROM Patients
+        WHERE FullName LIKE '%${filter}%' OR Phone LIKE '%${filter}%'
+        ORDER BY FullName;
+      `;
+      let res = db.exec(query);
+      if (res.length === 0) {
+        document.getElementById("patientsList").innerHTML = "<p>Không có bệnh nhân</p>";
+        return;
+      }
+      let html = "";
+      res[0].values.forEach(row => {
+        const pid = row[0];
+        const name = row[1];
+        const phone = row[2] || "";
+        html += `<div class="patient" onclick="toggleVisits(${pid}, this)">${name} (${phone})</div>
+                 <div id="visits-${pid}" class="visits"></div>`;
+      });
+      document.getElementById("patientsList").innerHTML = html;
+    }
+
+    function toggleVisits(patientId, el) {
+      const container = document.getElementById("visits-" + patientId);
+      if (container.innerHTML.trim() !== "") {
+        container.innerHTML = ""; // collapse
+        return;
+      }
+
+      const query = `
+        SELECT v.VisitId, v.VisitDate, v.Diagnosis
+        FROM Visits v
+        WHERE v.PatientId=${patientId}
+        ORDER BY v.VisitDate DESC;
+      `;
+      let res = db.exec(query);
+
+      if (res.length === 0 || res[0].values.length === 0) {
+        container.innerHTML = "<div class='empty'>(Chưa có lần khám)</div>";
+        return;
+      }
+
+      let html = "<ul>";
+      res[0].values.forEach(row => {
+        const vid = row[0];
+        const date = row[1].split(".")[0]; // bỏ mili giây
+        const diagnosis = row[2] || "";
+         html += `<li class="visit-item" onclick="showVisitDetail(${vid}, this)">
+               📅 ${date} – ${diagnosis}
+             </li>`;
+      });
+      html += "</ul>";
+      container.innerHTML = html;
+    }
+
+    // Hiển thị chi tiết lần khám
+    function showVisitDetail(visitId, el) {
+      // reset highlight
+  document.querySelectorAll(".visit-item").forEach(li => li.classList.remove("active-visit"));
+  if (el) el.classList.add("active-visit");
+      const query = `
+        SELECT v.VisitDate, v.Diagnosis, v.Symptoms, v.PrescriptionNotes,
+               v.MedicationsTotal, v.TotalAmount,
+               ef.NameFee, ef.PriceFee,
+               m.Name as Medication, m.ActiveIngredient, m.Format,
+               vm.Dosage, vm.Quantity, vm.PriceAtDispense,
+               u.Instruction
+        FROM Visits v
+        LEFT JOIN ExaminationFees ef ON v.ExaminationFeeId = ef.ExaminationFeeId
+        LEFT JOIN VisitMedications vm ON v.VisitId = vm.VisitId
+        LEFT JOIN Medications m ON vm.MedicationId = m.MedicationId
+        LEFT JOIN UsageInstructions u ON vm.UsageInstructionId = u.UsageInstructionId
+        WHERE v.VisitId=${visitId};
+      `;
+      let res = db.exec(query);
+      if (res.length === 0) {
+        document.getElementById("visitDetail").innerHTML = "<p>Không có dữ liệu</p>";
+        return;
+      }
+      let rows = res[0].values;
+      let html = `<h3>Lần khám ngày ${rows[0][0]}</h3>
+                  <p><b>Chẩn đoán:</b> ${rows[0][1]||""}</p>
+                  <p><b>Triệu chứng:</b> ${rows[0][2]||""}</p>
+                  <p><b>Ghi chú đơn thuốc:</b> ${rows[0][3]||""}</p>
+                  <p><b>Phí khám:</b> ${rows[0][7]||0}₫ (${rows[0][6]||""})</p>
+                  <p><b>Tổng tiền thuốc:</b> ${rows[0][4]||0}₫</p>
+                  <p><b>Tổng cộng:</b> ${rows[0][5]||0}₫</p>`;
+      html += "<h4>Đơn thuốc</h4><table><tr><th>Thuốc</th><th>Hoạt chất</th><th>Dạng</th><th>Liều</th><th>Số lượng</th><th>Giá xuất</th><th>Hướng dẫn</th></tr>";
+      rows.forEach(r => {
+        html += `<tr>
+          <td>${r[8]||""}</td>
+          <td>${r[9]||""}</td>
+          <td>${r[10]||""}</td>
+          <td>${r[11]||""}</td>
+          <td>${r[12]||""}</td>
+          <td>${r[13]||""}</td>
+          <td>${r[14]||""}</td>
+        </tr>`;
+      });
+      html += "</table>";
+      document.getElementById("visitDetail").innerHTML = html;
+    }
+
+    // Tìm kiếm bệnh nhân
+    document.getElementById("searchBox").addEventListener("input", (e) => {
+      renderPatients(e.target.value);
+    });
+  </script>
+</body>
+</html>
