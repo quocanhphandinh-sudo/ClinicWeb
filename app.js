@@ -2,7 +2,7 @@ let db = null;
 
 // Hàm tải file SQLite từ Google Drive
 async function loadDbFromDrive() {
-  const url = "hhttps://github.com/quocanhphandinh-sudo/ClinicWeb/blob/main/clinic_backup_20250829_083142.db";
+  const url = "https://raw.githubusercontent.com/quocanhphandinh-sudo/ClinicWeb/main/clinic_backup_20250829_083142.db";
   
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
