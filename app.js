@@ -2,7 +2,8 @@ let db = null;
 
 // Hàm tải file SQLite từ Google Drive
 async function loadDbFromDrive() {
-  const url = "https://github.com/quocanhphandinh-sudo/ClinicWeb/raw/refs/heads/main/clinic_backup_20250829_083142.db";
+  const url = "hhttps://github.com/quocanhphandinh-sudo/ClinicWeb/blob/main/clinic_backup_20250829_083142.db";
+  
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
   const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${f}` });
