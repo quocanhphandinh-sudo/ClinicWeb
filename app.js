@@ -1,92 +1,119 @@
-// 🔹 Cấu hình Firebase (dùng đúng config của bạn)
+// Import SDK từ Firebase (cấu hình trong index.html)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+// =======================
+// 🔧 Firebase cấu hình
+// =======================
 const firebaseConfig = {
-  apiKey: "AIzaSy.....",
-  authDomain: "clinicweb-xxxx.firebaseapp.com",
-  databaseURL: "https://clinicweb-xxxx-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "clinicweb-xxxx",
-  storageBucket: "clinicweb-xxxx.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:xxxx"
+  apiKey: "AIzaSyBslD1AIPcbrqo1e3jXApPonHLCpG0WxIc",
+  authDomain: "clinicweb-7cab1.firebaseapp.com",
+  projectId: "clinicweb-7cab1",
+  storageBucket: "clinicweb-7cab1.firebasestorage.app",
+  messagingSenderId: "613257243646",
+  appId: "1:613257243646:web:7562ca43c007037cd4eeaf",
+  measurementId: "G-H7XX7T7DV4"
 };
 
-// 🔹 Khởi tạo Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// Khởi tạo Firebase + Firestore
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-// Thêm bệnh nhân
+// =======================
+// 1. Thêm bệnh nhân
+// =======================
 document.getElementById("addPatientForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = document.getElementById("name").value;
-  const phone = document.getElementById("phone").value;
-  const age = document.getElementById("age").value;
+    e.preventDefault();
 
-  const newPatientRef = db.ref("patients").push();
-  await newPatientRef.set({ id: newPatientRef.key, name, phone, age });
+    const name = document.getElementById("name").value;
+    const phone = document.getElementById("phone").value;
+    const age = document.getElementById("age").value;
 
-  alert("Đã thêm bệnh nhân");
-  document.getElementById("addPatientForm").reset();
-  loadPatients();
+    try {
+        await addDoc(collection(db, "patients"), {
+            name,
+            phone,
+            age
+        });
+        alert("✅ Thêm bệnh nhân thành công!");
+        loadPatients(); // refresh danh sách
+        e.target.reset();
+    } catch (error) {
+        console.error("❌ Lỗi khi thêm bệnh nhân:", error);
+    }
 });
 
-// Hiển thị danh sách bệnh nhân
+// =======================
+// 2. Load toàn bộ bệnh nhân
+// =======================
 async function loadPatients() {
-  const snapshot = await db.ref("patients").once("value");
-  const patients = snapshot.val() || {};
-  const listDiv = document.getElementById("patientsList");
-  listDiv.innerHTML = "";
+    const listDiv = document.getElementById("patientsList");
+    listDiv.innerHTML = "";
 
-  Object.values(patients).forEach(p => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <b>${p.name}</b> - ${p.phone} - Tuổi: ${p.age || "-"}
-      <button onclick="deletePatient('${p.id}')">Xóa</button>
-      <button onclick="showVisitDetail('${p.id}')">Lịch sử khám</button>
-    `;
-    listDiv.appendChild(div);
-  });
-}
-
-// Xóa bệnh nhân
-async function deletePatient(id) {
-  if (confirm("Bạn có chắc muốn xóa bệnh nhân này?")) {
-    await db.ref("patients/" + id).remove();
-    loadPatients();
-  }
-}
-
-// Tìm kiếm bệnh nhân
-async function searchPatients() {
-  const keyword = document.getElementById("searchInput").value.toLowerCase();
-  const snapshot = await db.ref("patients").once("value");
-  const patients = snapshot.val() || {};
-  const listDiv = document.getElementById("patientsList");
-  listDiv.innerHTML = "";
-
-  Object.values(patients)
-    .filter(p => p.name.toLowerCase().includes(keyword) || p.phone.includes(keyword))
-    .forEach(p => {
-      const div = document.createElement("div");
-      div.innerHTML = `
-        <b>${p.name}</b> - ${p.phone} - Tuổi: ${p.age || "-"}
-        <button onclick="deletePatient('${p.id}')">Xóa</button>
-        <button onclick="showVisitDetail('${p.id}')">Lịch sử khám</button>
-      `;
-      listDiv.appendChild(div);
+    const querySnapshot = await getDocs(collection(db, "patients"));
+    querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const div = document.createElement("div");
+        div.innerHTML = `
+            <b>${data.name}</b> - ${data.phone} - ${data.age} tuổi
+            <button onclick="deletePatient('${docSnap.id}')">Xóa</button>
+        `;
+        listDiv.appendChild(div);
     });
 }
+window.loadPatients = loadPatients; // cho gọi ngoài HTML
 
-// Lịch sử khám bệnh (visit)
-async function showVisitDetail(patientId) {
-  const snapshot = await db.ref("visits/" + patientId).once("value");
-  const visits = snapshot.val() || {};
+// =======================
+// 3. Tìm kiếm bệnh nhân
+// =======================
+async function searchPatients() {
+    const keyword = document.getElementById("searchInput").value.trim();
+    const listDiv = document.getElementById("patientsList");
+    listDiv.innerHTML = "";
 
-  let detail = `Lịch sử khám bệnh của bệnh nhân:\n`;
-  Object.values(visits).forEach(v => {
-    detail += `- Ngày: ${v.date}, Chẩn đoán: ${v.diagnosis}, Thuốc: ${v.medicine}\n`;
-  });
+    if (keyword === "") {
+        alert("⚠️ Nhập tên hoặc số điện thoại để tìm!");
+        return;
+    }
 
-  alert(detail);
+    // Tìm theo số điện thoại trước
+    let q = query(collection(db, "patients"), where("phone", "==", keyword));
+    let querySnapshot = await getDocs(q);
+
+    // Nếu không tìm thấy thì tìm theo tên
+    if (querySnapshot.empty) {
+        q = query(collection(db, "patients"), where("name", "==", keyword));
+        querySnapshot = await getDocs(q);
+    }
+
+    if (querySnapshot.empty) {
+        listDiv.innerHTML = "❌ Không tìm thấy bệnh nhân!";
+    } else {
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const div = document.createElement("div");
+            div.innerHTML = `
+                <b>${data.name}</b> - ${data.phone} - ${data.age} tuổi
+                <button onclick="deletePatient('${docSnap.id}')">Xóa</button>
+            `;
+            listDiv.appendChild(div);
+        });
+    }
 }
+window.searchPatients = searchPatients; // cho gọi ngoài HTML
 
-// Tải dữ liệu khi load trang
-window.onload = loadPatients;
+// =======================
+// 4. Xóa bệnh nhân
+// =======================
+async function deletePatient(id) {
+    if (confirm("Bạn có chắc chắn muốn xóa bệnh nhân này?")) {
+        try {
+            await deleteDoc(doc(db, "patients", id));
+            alert("🗑️ Đã xóa!");
+            loadPatients();
+        } catch (error) {
+            console.error("❌ Lỗi khi xóa:", error);
+        }
+    }
+}
+window.deletePatient = deletePatient;
