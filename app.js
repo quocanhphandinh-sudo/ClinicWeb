@@ -1,68 +1,104 @@
-let db = null; // Biến này không cần thiết nữa khi dùng API
+// Dán đoạn mã cấu hình từ Firebase Console vào đây
+const firebaseConfig = {
+apiKey: "AIzaSyDwwaodTBTwgQbvkP1X1CQyvu2xNXLanvk",
+  authDomain: "clinicappweb-d7c1c.firebaseapp.com",
+  databaseURL: "https://clinicappweb-d7c1c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "clinicappweb-d7c1c",
+  storageBucket: "clinicappweb-d7c1c.firebasestorage.app",
+  messagingSenderId: "578720705506",
+  appId: "1:578720705506:web:b171f012fa80fa126b67bb",
+  measurementId: "G-YHLCPVK6X6"
+};
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-// Thay đổi URL API tại đây
-const API_URL = 'https://clinicwebbackend.onrender.com/api'; 
-// Sau khi deploy, bạn sẽ thay đổi thành 'https://clinicwebbackend.onrender.com/api'
+// them vao dau
 
 // Hàm tải dữ liệu bệnh nhân từ API
 async function loadPatientsFromApi() {
   try {
-    const response = await fetch(`${API_URL}/patients`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch patients from server');
-    }
-    const patients = await response.json(); // Lấy dữ liệu dạng JSON
-
-    let html = "";
-    patients.forEach(patient => {
-      // Dữ liệu trả về từ API có thể khác, bạn cần đảm bảo các trường khớp với tên cột trong DB
-      html += `<div class="patient" onclick="toggleVisits(${patient.PatientId}, this)">${patient.FullName} (${patient.Phone})</div>
-                <div id="visits-${patient.PatientId}" class="visits"></div>`;
-    });
-    document.getElementById("patientsList").innerHTML = html;
-
+    const snapshot = await database.ref("patients").once("value");
+    const patientsObj = snapshot.val() || {};
+    const patients = Object.entries(patientsObj).map(([id, p]) => ({ id, ...p }));
+    renderPatients(patients);
   } catch (error) {
-    console.error("Error fetching data:", error);
-    document.getElementById("patientsList").innerHTML = "<p>Lỗi: Không thể tải dữ liệu bệnh nhân.</p>";
+    console.error("Error loading patients:", error);
   }
+}
+function renderPatients(patients) {
+  const listDiv = document.getElementById("patientsList");
+  listDiv.innerHTML = "";
+  if (patients.length === 0) {
+    listDiv.innerHTML = "<p>Không có bệnh nhân nào.</p>";
+    return;
+  }
+  patients.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "patient-item";
+    div.innerHTML = `
+      <span><b>${p.FullName}</b> (${p.Phone}) - ${p.DateOfBirth} - ${p.Gender}</span>
+      <button class="delete-btn" onclick="deletePatient('${p.id}')">Xóa</button>
+    `;
+    listDiv.appendChild(div);
+  });
+}
+async function addPatient(patientData) {
+  try {
+    const newRef = database.ref("patients").push();
+    await newRef.set(patientData);
+    alert("Thêm thành công!");
+    loadPatientsFromApi();
+  } catch (error) {
+    console.error("Error adding patient:", error);
+  }
+}
+async function deletePatient(patientId) {
+  if (!confirm("Bạn có chắc muốn xóa?")) return;
+  try {
+    await database.ref("patients/" + patientId).remove();
+    alert("Xóa thành công!");
+    loadPatientsFromApi();
+  } catch (error) {
+    console.error("Error deleting patient:", error);
+  }
+}
+async function searchPatients() {
+  const keyword = document.getElementById("searchInput").value.toLowerCase();
+  const snapshot = await database.ref("patients").once("value");
+  const patientsObj = snapshot.val() || {};
+  const patients = Object.entries(patientsObj).map(([id, p]) => ({ id, ...p }));
+  const filtered = patients.filter(p =>
+    p.FullName.toLowerCase().includes(keyword) ||
+    p.Phone.includes(keyword)
+  );
+  renderPatients(filtered);
 }
 
 // Hàm tải danh sách lần khám từ API
 async function toggleVisits(patientId, el) {
   const container = document.getElementById("visits-" + patientId);
   if (container.innerHTML.trim() !== "") {
-    container.innerHTML = ""; // collapse
+    container.innerHTML = "";
     return;
   }
 
-  try {
-    const response = await fetch(`${API_URL}/visits/${patientId}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch visits from server');
-    }
-    const visits = await response.json(); // Lấy dữ liệu lần khám
+  const snapshot = await database.ref("visits/" + patientId).once("value");
+  const visitsObj = snapshot.val() || {};
+  const visits = Object.entries(visitsObj).map(([id, v]) => ({ id, ...v }));
 
-    if (visits.length === 0) {
-      container.innerHTML = "<div class='empty'>(Chưa có lần khám)</div>";
-      return;
-    }
-
-    let html = "<ul>";
-    visits.forEach(visit => {
-      // Dữ liệu trả về từ API có thể khác, bạn cần đảm bảo các trường khớp
-      const date = visit.VisitDate.split(".")[0];
-      const diagnosis = visit.Diagnosis || "";
-      html += `<li class="visit-item" onclick="showVisitDetail(${visit.VisitId}, this)">
-               📅 ${date} – ${diagnosis}
-               </li>`;
-    });
-    html += "</ul>";
-    container.innerHTML = html;
-
-  } catch (error) {
-    console.error("Error fetching visits:", error);
-    container.innerHTML = "<div class='empty'>Lỗi tải dữ liệu lần khám.</div>";
+  if (visits.length === 0) {
+    container.innerHTML = "<div class='empty'>(Chưa có lần khám)</div>";
+    return;
   }
+
+  let html = "<ul>";
+  visits.forEach(visit => {
+    html += `<li class="visit-item" onclick="showVisitDetail('${visit.id}', this)">
+      📅 ${visit.VisitDate} – ${visit.Diagnosis||""}
+    </li>`;
+  });
+  html += "</ul>";
+  container.innerHTML = html;
 }
 
 // Hàm hiển thị chi tiết lần khám từ API
@@ -120,50 +156,3 @@ document.getElementById("searchBox").addEventListener("input", (e) => {
   // Ví dụ: GET /api/patients?filter=...
   // Hiện tại, tạm thời bỏ qua phần này
 });
-// Hàm thêm bệnh nhân mới
-async function addPatient(patientData) {
-  try {
-    const response = await fetch(`${API_URL}/patients`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patientData)
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || 'Không thể thêm bệnh nhân');
-    }
-
-    const newPatient = await response.json();
-    alert("Thêm bệnh nhân thành công!");
-    await loadPatientsFromApi(); // reload danh sách
-    return newPatient;
-  } catch (error) {
-    console.error("Error adding patient:", error);
-    alert("Lỗi khi thêm bệnh nhân: " + error.message);
-  }
-}
-
-// Hàm xóa bệnh nhân
-async function deletePatient(patientId) {
-  if (!confirm("Bạn có chắc muốn xóa bệnh nhân này không?")) return;
-
-  try {
-    const response = await fetch(`${API_URL}/patients/${patientId}`, {
-      method: 'DELETE'
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || 'Không thể xóa bệnh nhân');
-    }
-
-    const result = await response.json();
-    alert(result.message);
-    await loadPatientsFromApi(); // reload danh sách
-    return result;
-  } catch (error) {
-    console.error("Error deleting patient:", error);
-    alert("Lỗi khi xóa bệnh nhân: " + error.message);
-  }
-}
