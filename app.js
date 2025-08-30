@@ -17,7 +17,7 @@ async function loadPatientsFromApi() {
     patients.forEach(patient => {
       // Dữ liệu trả về từ API có thể khác, bạn cần đảm bảo các trường khớp với tên cột trong DB
       html += `<div class="patient" onclick="toggleVisits(${patient.PatientId}, this)">${patient.FullName} (${patient.Phone})</div>
-               <div id="visits-${patient.PatientId}" class="visits"></div>`;
+                <div id="visits-${patient.PatientId}" class="visits"></div>`;
     });
     document.getElementById("patientsList").innerHTML = html;
 
@@ -112,8 +112,7 @@ async function showVisitDetail(visitId, el) {
   }
 }
 
-// Bỏ các hàm cũ và thêm các sự kiện mới để gọi hàm API
-document.getElementById("loadFromDrive").addEventListener("click", loadPatientsFromApi);
+
 
 // Tìm kiếm bệnh nhân
 document.getElementById("searchBox").addEventListener("input", (e) => {
