@@ -3,149 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <title>Quản lý bệnh nhân</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { color: #2c3e50; }
-    form { margin-bottom: 20px; }
-    label { display: block; margin: 5px 0; }
-    input, select { padding: 5px; margin-bottom: 10px; width: 300px; }
-    button { padding: 5px 10px; margin-top: 5px; }
-    .patient-item {
-      border: 1px solid #ccc; padding: 10px; margin: 5px 0;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .delete-btn { background: red; color: white; border: none; cursor: pointer; }
-  </style>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 </head>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <body>
   <h1>Quản lý bệnh nhân</h1>
 
   <!-- Form thêm bệnh nhân -->
-  <h2>Thêm bệnh nhân mới</h2>
   <form id="addPatientForm">
-    <label>Họ tên: <input type="text" id="FullName" required></label>
-    <label>Ngày sinh: <input type="date" id="DateOfBirth" required></label>
-    <label>Giới tính: 
-      <select id="Gender" required>
-        <option value="Nam">Nam</option>
-        <option value="Nữ">Nữ</option>
-      </select>
-    </label>
-    <label>Dị ứng: <input type="text" id="Allergies" required></label>
-    <label>Địa chỉ: <input type="text" id="Address" required></label>
-    <label>Số điện thoại: <input type="text" id="Phone" required></label>
+    <input type="text" id="name" placeholder="Họ và tên" required>
+    <input type="text" id="phone" placeholder="Số điện thoại" required>
+    <input type="number" id="age" placeholder="Tuổi">
     <button type="submit">Thêm bệnh nhân</button>
   </form>
 
   <!-- Form tìm kiếm -->
   <h2>Tìm kiếm bệnh nhân</h2>
   <input type="text" id="searchInput" placeholder="Nhập họ tên hoặc số điện thoại...">
-  <button onclick="searchPatients()">Tìm kiếm</button>
-  <button onclick="loadPatientsFromApi()">Hiện tất cả</button>
+  <button type="button" onclick="searchPatients()">Tìm kiếm</button>
+  <button type="button" onclick="loadPatients()">Hiện tất cả</button>
 
   <!-- Danh sách bệnh nhân -->
-  <h2>Danh sách bệnh nhân</h2>
   <div id="patientsList"></div>
 
-  <script>
-    const API_URL = "https://clinicwebbackend.onrender.com/api";
-
-    // Load tất cả bệnh nhân
-    async function loadPatientsFromApi() {
-      try {
-        const response = await fetch(`${API_URL}/patients`);
-        const patients = await response.json();
-        renderPatients(patients);
-      } catch (error) {
-        console.error("Error loading patients:", error);
-      }
-    }
-
-    // Render danh sách
-    function renderPatients(patients) {
-      const listDiv = document.getElementById("patientsList");
-      listDiv.innerHTML = "";
-      if (patients.length === 0) {
-        listDiv.innerHTML = "<p>Không có bệnh nhân nào.</p>";
-        return;
-      }
-      patients.forEach(p => {
-        const div = document.createElement("div");
-        div.className = "patient-item";
-        div.innerHTML = `
-          <span><b>${p.FullName}</b> (${p.Phone}) - ${p.DateOfBirth} - ${p.Gender}</span>
-          <button class="delete-btn" onclick="deletePatient(${p.PatientId})">Xóa</button>
-        `;
-        listDiv.appendChild(div);
-      });
-    }
-
-    // Thêm bệnh nhân mới
-    document.getElementById("addPatientForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const newPatient = {
-        FullName: document.getElementById("FullName").value,
-        DateOfBirth: document.getElementById("DateOfBirth").value,
-        Gender: document.getElementById("Gender").value,
-        Allergies: document.getElementById("Allergies").value,
-        Address: document.getElementById("Address").value,
-        Phone: document.getElementById("Phone").value
-      };
-      await addPatient(newPatient);
-      e.target.reset();
-    });
-
-    async function addPatient(patientData) {
-      try {
-        const response = await fetch(`${API_URL}/patients`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patientData)
-        });
-        const newPatient = await response.json();
-        alert("Thêm thành công!");
-        loadPatientsFromApi();
-      } catch (error) {
-        console.error("Error adding patient:", error);
-      }
-    }
-
-    // Xóa bệnh nhân
-    async function deletePatient(patientId) {
-      if (!confirm("Bạn có chắc muốn xóa?")) return;
-      try {
-        await fetch(`${API_URL}/patients/${patientId}`, { method: "DELETE" });
-        alert("Xóa thành công!");
-        loadPatientsFromApi();
-      } catch (error) {
-        console.error("Error deleting patient:", error);
-      }
-    }
-
-    // Tìm kiếm bệnh nhân theo họ tên hoặc số điện thoại
-    async function searchPatients() {
-      const keyword = document.getElementById("searchInput").value.toLowerCase();
-      if (!keyword) {
-        loadPatientsFromApi();
-        return;
-      }
-      try {
-        const response = await fetch(`${API_URL}/patients`);
-        const patients = await response.json();
-        const filtered = patients.filter(p =>
-          p.FullName.toLowerCase().includes(keyword) || 
-          p.Phone.includes(keyword)
-        );
-        renderPatients(filtered);
-      } catch (error) {
-        console.error("Error searching patients:", error);
-      }
-    }
-
-    // Load mặc định khi mở trang
-    loadPatientsFromApi();
-  </script>
+  <!-- Import app.js -->
+  <script src="app.js"></script>
 </body>
 </html>
