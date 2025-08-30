@@ -1,61 +1,32 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Quản lý bệnh nhân</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>Quản lý bệnh nhân</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Quản lý bệnh nhân</h1>
-    </header>
+  <h1>Quản lý bệnh nhân</h1>
 
-    <!-- Form thêm bệnh nhân -->
-    <section>
-        <h2>Thêm bệnh nhân mới</h2>
-        <form id="addPatientForm">
-            <input type="text" id="name" placeholder="Họ tên" required>
-            <input type="text" id="phone" placeholder="Số điện thoại" required>
-            <input type="number" id="age" placeholder="Tuổi" required>
-            <button type="submit">➕ Thêm</button>
-        </form>
-    </section>
+  <!-- Form thêm bệnh nhân -->
+  <form id="patientForm">
+    <input type="text" id="fullname" placeholder="Họ tên" required>
+    <input type="text" id="dob" placeholder="Ngày sinh" required>
+    <input type="text" id="gender" placeholder="Giới tính">
+    <input type="text" id="allergies" placeholder="Dị ứng">
+    <input type="text" id="address" placeholder="Địa chỉ">
+    <input type="text" id="phone" placeholder="SĐT" required>
+    <button type="submit">➕ Thêm</button>
+  </form>
 
-    <!-- Tìm kiếm bệnh nhân -->
-    <section>
-        <h2>Tìm kiếm bệnh nhân</h2>
-        <input type="text" id="searchInput" placeholder="Nhập tên hoặc số điện thoại">
-        <button onclick="searchPatients()">🔍 Tìm kiếm</button>
-        <button onclick="loadPatients()">📋 Xem tất cả</button>
-    </section>
+  <!-- Ô tìm kiếm -->
+  <input type="text" id="searchInput" placeholder="Tìm theo họ tên hoặc SĐT">
+  <button onclick="searchPatients()">🔍 Tìm</button>
+  <button onclick="loadPatients()">📋 Tất cả</button>
 
-    <!-- Danh sách bệnh nhân -->
-    <section>
-        <h2>Danh sách bệnh nhân</h2>
-        <div id="patientsList"></div>
-    </section>
+  <!-- Danh sách bệnh nhân -->
+  <ul id="patientList"></ul>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        // Import Firebase SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-
-        // 🔧 Firebase config (thay bằng của bạn trong Firebase Console)
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        // Khởi tạo Firebase
-        const app = initializeApp(firebaseConfig);
-    </script>
-
-    <!-- File app.js của bạn -->
-    <script type="module" src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
