@@ -1,6 +1,6 @@
 
 
-const API_URL = "https://script.google.com/macros/s/AKfycbyJvwVYDUTb_0vjUaqGoFDcV1RRbCgVvQEJVPymUeoovFgLlRXfO9AT_ZqDsZoitLAK/exec"; // thay bằng link WebApp của bạn
+const API_URL = "https://script.google.com/macros/s/AKfycbxjXwr-6l2bARPa2o4Ovw2f77nh0axn0M7PP_xnkPjBbr5155-uTVDXerPzSwx_sO7r/exec"; // thay bằng link WebApp của bạn
 
 // Load tất cả bệnh nhân
 async function loadPatients() {
