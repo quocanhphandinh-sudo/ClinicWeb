@@ -3,44 +3,147 @@
 <head>
   <meta charset="UTF-8">
   <title>Quản lý bệnh nhân</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
   <style>
-    body { margin:0; font-family: Arial, sans-serif; display:flex; height:100vh; }
-    #sidebar {
-      width: 300px; background:#f4f4f4; border-right:1px solid #ccc; padding:10px; overflow-y:auto;
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #2c3e50; }
+    form { margin-bottom: 20px; }
+    label { display: block; margin: 5px 0; }
+    input, select { padding: 5px; margin-bottom: 10px; width: 300px; }
+    button { padding: 5px 10px; margin-top: 5px; }
+    .patient-item {
+      border: 1px solid #ccc; padding: 10px; margin: 5px 0;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    #main { flex:1; padding:20px; overflow-y:auto; }
-    .patient { cursor:pointer; padding:5px; font-weight:bold; }
-    .patient:hover { background:#ddd; }
-    .visits { margin-left:15px; }
-    .visit { cursor:pointer; padding:3px; }
-    .visit:hover { background:#eee; }
-    #searchBox { width:100%; padding:5px; margin-bottom:10px; }
-    table { border-collapse:collapse; width:100%; margin-top:10px; }
-    th, td { border:1px solid #ccc; padding:5px; text-align:left; }
-    th { background:#eee; }
-    .empty { color: gray; font-style: italic; }
-    .active-visit {
-      background: #cce5ff;
-      font-weight: bold;
-      color: #004085;
-      border-radius: 4px;
-    }
+    .delete-btn { background: red; color: white; border: none; cursor: pointer; }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <button id="loadFromDrive">📂 Tải từ Google Drive</button>
-    <input type="file" id="dbfile" />
-    <input type="text" id="searchBox" placeholder="Tìm bệnh nhân...">
-    <div id="patientsList"></div>
-  </div>
-  <div id="main">
-    <h2>Chi tiết khám bệnh</h2>
-    <div id="visitDetail">Chọn bệnh nhân và lần khám để xem chi tiết.</div>
-  </div>
+  <h1>Quản lý bệnh nhân</h1>
 
-  <!-- Tách riêng code ra -->
-  <script src="app.js"></script>
+  <!-- Form thêm bệnh nhân -->
+  <h2>Thêm bệnh nhân mới</h2>
+  <form id="addPatientForm">
+    <label>Họ tên: <input type="text" id="FullName" required></label>
+    <label>Ngày sinh: <input type="date" id="DateOfBirth" required></label>
+    <label>Giới tính: 
+      <select id="Gender" required>
+        <option value="Nam">Nam</option>
+        <option value="Nữ">Nữ</option>
+      </select>
+    </label>
+    <label>Dị ứng: <input type="text" id="Allergies" required></label>
+    <label>Địa chỉ: <input type="text" id="Address" required></label>
+    <label>Số điện thoại: <input type="text" id="Phone" required></label>
+    <button type="submit">Thêm bệnh nhân</button>
+  </form>
+
+  <!-- Form tìm kiếm -->
+  <h2>Tìm kiếm bệnh nhân</h2>
+  <input type="text" id="searchInput" placeholder="Nhập họ tên hoặc số điện thoại...">
+  <button onclick="searchPatients()">Tìm kiếm</button>
+  <button onclick="loadPatientsFromApi()">Hiện tất cả</button>
+
+  <!-- Danh sách bệnh nhân -->
+  <h2>Danh sách bệnh nhân</h2>
+  <div id="patientsList"></div>
+
+  <script>
+    const API_URL = "http://localhost:3000/api"; // đổi URL server nếu deploy
+
+    // Load tất cả bệnh nhân
+    async function loadPatientsFromApi() {
+      try {
+        const response = await fetch(`${API_URL}/patients`);
+        const patients = await response.json();
+        renderPatients(patients);
+      } catch (error) {
+        console.error("Error loading patients:", error);
+      }
+    }
+
+    // Render danh sách
+    function renderPatients(patients) {
+      const listDiv = document.getElementById("patientsList");
+      listDiv.innerHTML = "";
+      if (patients.length === 0) {
+        listDiv.innerHTML = "<p>Không có bệnh nhân nào.</p>";
+        return;
+      }
+      patients.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "patient-item";
+        div.innerHTML = `
+          <span><b>${p.FullName}</b> (${p.Phone}) - ${p.DateOfBirth} - ${p.Gender}</span>
+          <button class="delete-btn" onclick="deletePatient(${p.PatientId})">Xóa</button>
+        `;
+        listDiv.appendChild(div);
+      });
+    }
+
+    // Thêm bệnh nhân mới
+    document.getElementById("addPatientForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newPatient = {
+        FullName: document.getElementById("FullName").value,
+        DateOfBirth: document.getElementById("DateOfBirth").value,
+        Gender: document.getElementById("Gender").value,
+        Allergies: document.getElementById("Allergies").value,
+        Address: document.getElementById("Address").value,
+        Phone: document.getElementById("Phone").value
+      };
+      await addPatient(newPatient);
+      e.target.reset();
+    });
+
+    async function addPatient(patientData) {
+      try {
+        const response = await fetch(`${API_URL}/patients`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patientData)
+        });
+        const newPatient = await response.json();
+        alert("Thêm thành công!");
+        loadPatientsFromApi();
+      } catch (error) {
+        console.error("Error adding patient:", error);
+      }
+    }
+
+    // Xóa bệnh nhân
+    async function deletePatient(patientId) {
+      if (!confirm("Bạn có chắc muốn xóa?")) return;
+      try {
+        await fetch(`${API_URL}/patients/${patientId}`, { method: "DELETE" });
+        alert("Xóa thành công!");
+        loadPatientsFromApi();
+      } catch (error) {
+        console.error("Error deleting patient:", error);
+      }
+    }
+
+    // Tìm kiếm bệnh nhân theo họ tên hoặc số điện thoại
+    async function searchPatients() {
+      const keyword = document.getElementById("searchInput").value.toLowerCase();
+      if (!keyword) {
+        loadPatientsFromApi();
+        return;
+      }
+      try {
+        const response = await fetch(`${API_URL}/patients`);
+        const patients = await response.json();
+        const filtered = patients.filter(p =>
+          p.FullName.toLowerCase().includes(keyword) || 
+          p.Phone.includes(keyword)
+        );
+        renderPatients(filtered);
+      } catch (error) {
+        console.error("Error searching patients:", error);
+      }
+    }
+
+    // Load mặc định khi mở trang
+    loadPatientsFromApi();
+  </script>
 </body>
 </html>

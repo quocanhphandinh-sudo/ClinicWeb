@@ -120,14 +120,50 @@ document.getElementById("searchBox").addEventListener("input", (e) => {
   // Ví dụ: GET /api/patients?filter=...
   // Hiện tại, tạm thời bỏ qua phần này
 });
+// Hàm thêm bệnh nhân mới
+async function addPatient(patientData) {
+  try {
+    const response = await fetch(`${API_URL}/patients`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patientData)
+    });
 
-// Chú ý: Các hàm CRUD (thêm, sửa, xóa) sẽ cần được viết riêng
-// Ví dụ:
-// async function addPatient(patientData) {
-//   const response = await fetch(`${API_URL}/patients`, {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/json' },
-//     body: JSON.stringify(patientData)
-//   });
-//   // Xử lý kết quả và làm mới danh sách
-// }
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Không thể thêm bệnh nhân');
+    }
+
+    const newPatient = await response.json();
+    alert("Thêm bệnh nhân thành công!");
+    await loadPatientsFromApi(); // reload danh sách
+    return newPatient;
+  } catch (error) {
+    console.error("Error adding patient:", error);
+    alert("Lỗi khi thêm bệnh nhân: " + error.message);
+  }
+}
+
+// Hàm xóa bệnh nhân
+async function deletePatient(patientId) {
+  if (!confirm("Bạn có chắc muốn xóa bệnh nhân này không?")) return;
+
+  try {
+    const response = await fetch(`${API_URL}/patients/${patientId}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Không thể xóa bệnh nhân');
+    }
+
+    const result = await response.json();
+    alert(result.message);
+    await loadPatientsFromApi(); // reload danh sách
+    return result;
+  } catch (error) {
+    console.error("Error deleting patient:", error);
+    alert("Lỗi khi xóa bệnh nhân: " + error.message);
+  }
+}
