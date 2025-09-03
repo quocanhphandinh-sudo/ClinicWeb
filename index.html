@@ -1,32 +1,25 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Quản lý bệnh nhân</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Quản lý bệnh nhân</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="app.js"></script>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        ul { list-style-type: none; margin-left: 20px; }
+        li { cursor: pointer; margin: 5px 0; }
+        li:hover { color: blue; }
+    </style>
 </head>
 <body>
-  <h1>Quản lý bệnh nhân</h1>
+    <h1>Quản lý bệnh nhân</h1>
 
-  <!-- Form thêm bệnh nhân -->
-  <form id="patientForm">
-    <input type="text" id="fullname" placeholder="Họ tên" required>
-    <input type="text" id="dob" placeholder="Ngày sinh" required>
-    <input type="text" id="gender" placeholder="Giới tính">
-    <input type="text" id="allergies" placeholder="Dị ứng">
-    <input type="text" id="address" placeholder="Địa chỉ">
-    <input type="text" id="phone" placeholder="SĐT" required>
-    <button type="submit">➕ Thêm</button>
-  </form>
+    <input type="text" id="searchInput" placeholder="Nhập tên hoặc số điện thoại">
+    <button onclick="searchPatients()">🔍 Tìm kiếm</button>
+    <button onclick="loadPatients()">📋 Xem tất cả</button>
 
-  <!-- Ô tìm kiếm -->
-  <input type="text" id="searchInput" placeholder="Tìm theo họ tên hoặc SĐT">
-  <button onclick="searchPatients()">🔍 Tìm</button>
-  <button onclick="loadPatients()">📋 Tất cả</button>
-
-  <!-- Danh sách bệnh nhân -->
-  <ul id="patientList"></ul>
-
-  <script src="app.js"></script>
+    <h2>Danh sách bệnh nhân</h2>
+    <ul id="patientList"></ul>
 </body>
 </html>
