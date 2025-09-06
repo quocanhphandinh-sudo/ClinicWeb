@@ -183,24 +183,12 @@ async function loadMedicines(visitId) {
     try {
         const database = await initDb();
 
-        // Lấy danh sách cột thực tế
-        const vmCols = getTableColumns(database, "VisitMedications");
-        const mCols  = getTableColumns(database, "Medications");
-        const uCols  = getTableColumns(database, "UsageInstructions");
-
-        const colName    = findColumn(mCols, ["Name"]) || "MedicationId";
-        const colDosage  = findColumn(vmCols, ["Dosage"]);
-        const colQty     = findColumn(vmCols, ["Quantity"]);
-        const colPrice   = findColumn(vmCols, ["PriceAtDispense", "Price"]);
-        const colInstr   = findColumn(uCols, ["Instruction"]);
-
-        // Query an toàn
         const sql = `
-            SELECT m.${colName} AS medName,
-                   vm.${colDosage} AS dosage,
-                   vm.${colQty} AS qty,
-                   vm.${colPrice} AS price,
-                   u.${colInstr} AS instruction
+            SELECT m.Name AS MedName,
+                   vm.Dosage,
+                   vm.Quantity,
+                   vm.PriceAtDispense,
+                   u.Instruction
             FROM VisitMedications vm
             JOIN Medications m ON vm.MedicationId = m.MedicationId
             LEFT JOIN UsageInstructions u ON vm.UsageInstructionId = u.UsageInstructionId
@@ -213,17 +201,22 @@ async function loadMedicines(visitId) {
         const list = document.getElementById("medicinesList");
         list.innerHTML = "";
 
+        let found = false;
         while (stmt.step()) {
+            found = true;
             const row = stmt.getAsObject();
             const li = document.createElement("li");
-            li.textContent = `${row.medName || "(Tên thuốc?)"} - SL: ${row.qty || 0} - Liều: ${row.dosage || ""} - Giá: ${row.price || "0"}₫ - Cách dùng: ${row.instruction || ""}`;
+            li.textContent = `${row.MedName} - SL: ${row.Quantity} - Liều: ${row.Dosage} - Giá: ${row.PriceAtDispense || 0}₫ - Cách dùng: ${row.Instruction || ""}`;
             list.appendChild(li);
         }
         stmt.free();
 
-        logStatus("✅ Đã load thuốc cho lần khám");
+        if (!found) {
+            logStatus("⚠️ Không có thuốc nào trong lần khám này");
+        } else {
+            logStatus("✅ Đã load thuốc cho lần khám");
+        }
     } catch (err) {
         logStatus("❌ Lỗi loadMedicines: " + err.message);
     }
 }
-
