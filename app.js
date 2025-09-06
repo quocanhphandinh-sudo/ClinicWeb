@@ -129,3 +129,51 @@ async function searchPatients(keyword) {
         logStatus("❌ Lỗi searchPatients: " + err.message);
     }
 }
+// 🔹 Load lịch sử khám của bệnh nhân
+async function loadVisits(patientId) {
+    try {
+        const database = await initDb();
+        const stmt = database.prepare("SELECT VisitID, Date FROM Visits WHERE PatientID = ?");
+        stmt.bind([patientId]);
+
+        const list = document.getElementById("visitsList");
+        list.innerHTML = "";
+
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            const li = document.createElement("li");
+            li.textContent = `Lần khám #${row.VisitID} - ${row.Date}`;
+            li.onclick = () => loadMedicines(row.VisitID); // click vào 1 lần khám thì load thuốc
+            list.appendChild(li);
+        }
+        stmt.free();
+
+        logStatus("✅ Đã load lịch sử khám");
+    } catch (err) {
+        logStatus("❌ Lỗi loadVisits: " + err.message);
+    }
+}
+// 🔹 Load thuốc đã kê theo Visit
+async function loadMedicines(visitId) {
+    try {
+        const database = await initDb();
+        const stmt = database.prepare("SELECT Medicine, Price FROM Prescriptions WHERE VisitID = ?");
+        stmt.bind([visitId]);
+
+        const list = document.getElementById("medicinesList");
+        list.innerHTML = "";
+
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            const li = document.createElement("li");
+            li.textContent = `${row.Medicine} - ${row.Price}₫`;
+            list.appendChild(li);
+        }
+        stmt.free();
+
+        logStatus("✅ Đã load danh sách thuốc");
+    } catch (err) {
+        logStatus("❌ Lỗi loadMedicines: " + err.message);
+    }
+}
+
