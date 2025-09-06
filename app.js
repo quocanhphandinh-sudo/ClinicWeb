@@ -91,7 +91,7 @@ async function loadPatients() {
         res[0].values.forEach(row => {
             const li = document.createElement("li");
             li.textContent = `${row[1]} - ${row[2]} - ${row[3]}`;
-            li.onclick = () => loadVisits(row[0]);
+            li.onclick = () => loadVisits(row[0]); // click bệnh nhân -> xem visits
             list.appendChild(li);
         });
 
@@ -113,23 +113,31 @@ async function searchPatients(keyword) {
         const stmt = database.prepare("SELECT * FROM Patients WHERE Name LIKE ? OR Phone LIKE ?");
         stmt.bind([`%${keyword}%`, `%${keyword}%`]);
 
-        const table = document.getElementById("patientList");
-        table.innerHTML = "";
+        const list = document.getElementById("patientList");
+        list.innerHTML = "";
 
+        let found = false;
         while (stmt.step()) {
+            found = true;
             const row = stmt.getAsObject();
             const li = document.createElement("li");
-            li.textContent = `${row.ID} - ${row.Name} - ${row.Phone}`;
-            table.appendChild(li);
+            li.textContent = `${row.Name} - ${row.Phone}`;
+            li.onclick = () => loadVisits(row.ID); // click bệnh nhân -> load visits
+            list.appendChild(li);
         }
         stmt.free();
 
-        logStatus("✅ Tìm kiếm xong");
+        if (found) {
+            logStatus("✅ Tìm thấy kết quả cho từ khóa: " + keyword);
+        } else {
+            logStatus("⚠️ Không tìm thấy bệnh nhân nào");
+        }
     } catch (err) {
         logStatus("❌ Lỗi searchPatients: " + err.message);
     }
 }
-// 🔹 Load lịch sử khám của bệnh nhân
+
+// 🔹 Load lịch sử khám
 async function loadVisits(patientId) {
     try {
         const database = await initDb();
@@ -139,21 +147,28 @@ async function loadVisits(patientId) {
         const list = document.getElementById("visitsList");
         list.innerHTML = "";
 
+        let found = false;
         while (stmt.step()) {
+            found = true;
             const row = stmt.getAsObject();
             const li = document.createElement("li");
             li.textContent = `Lần khám #${row.VisitID} - ${row.Date}`;
-            li.onclick = () => loadMedicines(row.VisitID); // click vào 1 lần khám thì load thuốc
+            li.onclick = () => loadMedicines(row.VisitID); // click visit -> load thuốc
             list.appendChild(li);
         }
         stmt.free();
 
-        logStatus("✅ Đã load lịch sử khám");
+        if (found) {
+            logStatus("✅ Đã load lịch sử khám");
+        } else {
+            logStatus("⚠️ Không có lịch sử khám");
+        }
     } catch (err) {
         logStatus("❌ Lỗi loadVisits: " + err.message);
     }
 }
-// 🔹 Load thuốc đã kê theo Visit
+
+// 🔹 Load thuốc
 async function loadMedicines(visitId) {
     try {
         const database = await initDb();
@@ -163,7 +178,9 @@ async function loadMedicines(visitId) {
         const list = document.getElementById("medicinesList");
         list.innerHTML = "";
 
+        let found = false;
         while (stmt.step()) {
+            found = true;
             const row = stmt.getAsObject();
             const li = document.createElement("li");
             li.textContent = `${row.Medicine} - ${row.Price}₫`;
@@ -171,9 +188,12 @@ async function loadMedicines(visitId) {
         }
         stmt.free();
 
-        logStatus("✅ Đã load danh sách thuốc");
+        if (found) {
+            logStatus("✅ Đã load danh sách thuốc");
+        } else {
+            logStatus("⚠️ Không có thuốc trong lần khám này");
+        }
     } catch (err) {
         logStatus("❌ Lỗi loadMedicines: " + err.message);
     }
 }
-
