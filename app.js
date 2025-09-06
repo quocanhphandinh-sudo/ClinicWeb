@@ -182,13 +182,31 @@ async function loadVisits(patientId) {
 async function loadMedicines(visitId) {
     try {
         const database = await initDb();
+
+        // Lấy danh sách cột thực tế
+        const vmCols = getTableColumns(database, "VisitMedications");
+        const mCols  = getTableColumns(database, "Medications");
+        const uCols  = getTableColumns(database, "UsageInstructions");
+
+        const colName    = findColumn(mCols, ["Name"]) || "MedicationId";
+        const colDosage  = findColumn(vmCols, ["Dosage"]);
+        const colQty     = findColumn(vmCols, ["Quantity"]);
+        const colPrice   = findColumn(vmCols, ["PriceAtDispense", "Price"]);
+        const colInstr   = findColumn(uCols, ["Instruction"]);
+
+        // Query an toàn
         const sql = `
-            SELECT m.Name, vm.Dosage, vm.Quantity, vm.PriceAtDispense, u.Instruction
+            SELECT m.${colName} AS medName,
+                   vm.${colDosage} AS dosage,
+                   vm.${colQty} AS qty,
+                   vm.${colPrice} AS price,
+                   u.${colInstr} AS instruction
             FROM VisitMedications vm
             JOIN Medications m ON vm.MedicationId = m.MedicationId
             LEFT JOIN UsageInstructions u ON vm.UsageInstructionId = u.UsageInstructionId
             WHERE vm.VisitId = ?
         `;
+
         const stmt = database.prepare(sql);
         stmt.bind([visitId]);
 
@@ -198,7 +216,7 @@ async function loadMedicines(visitId) {
         while (stmt.step()) {
             const row = stmt.getAsObject();
             const li = document.createElement("li");
-            li.textContent = `${row.Name} - SL: ${row.Quantity} - Liều: ${row.Dosage} - Giá: ${row.PriceAtDispense}₫ - Cách dùng: ${row.Instruction || ""}`;
+            li.textContent = `${row.medName || "(Tên thuốc?)"} - SL: ${row.qty || 0} - Liều: ${row.dosage || ""} - Giá: ${row.price || "0"}₫ - Cách dùng: ${row.instruction || ""}`;
             list.appendChild(li);
         }
         stmt.free();
@@ -208,3 +226,4 @@ async function loadMedicines(visitId) {
         logStatus("❌ Lỗi loadMedicines: " + err.message);
     }
 }
+
