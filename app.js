@@ -58,18 +58,15 @@ async function loadPatients() {
     const res = database.exec("SELECT * FROM Patients");
     if (res.length === 0) return;
 
-    const table = document.getElementById("patientsTable");
-    table.innerHTML = "";
+    const list = document.getElementById("patientList");
+list.innerHTML = "";
 
-    res[0].values.forEach(row => {
-        const tr = document.createElement("tr");
-        row.forEach(cell => {
-            const td = document.createElement("td");
-            td.textContent = cell;
-            tr.appendChild(td);
-        });
-        table.appendChild(tr);
-    });
+res[0].values.forEach(row => {
+    const li = document.createElement("li");
+    li.textContent = `${row[1]} - ${row[2]} - ${row[3]}`;
+    li.onclick = () => loadVisits(row[0]);
+    list.appendChild(li);
+});
 }
 
 // 🔹 Search bệnh nhân theo tên hoặc SĐT
