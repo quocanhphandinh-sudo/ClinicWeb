@@ -97,211 +97,114 @@ async function testDb() {
   }
 }
 
-// --- Load toàn bộ bệnh nhân ---
+// 🔹 Load toàn bộ bệnh nhân
 async function loadPatients() {
-  try {
-    const database = await initDb();
-    const patientsTable = firstExistingTable(database, ["Patients", "Patient"]);
-    if (!patientsTable) throw new Error("Không tìm thấy bảng Patients!");
+    try {
+        const database = await initDb();
+        const res = database.exec("SELECT PatientId, FullName, Phone FROM Patients ORDER BY FullName");
 
-    const cols = getTableColumns(database, patientsTable);
-    const idCol = findColumn(cols, ["ID", "Id", "PatientID", "PatientId"]);
-    const nameCol = findColumn(cols, ["Name", "FullName", "HoTen"]);
-    const phoneCol = findColumn(cols, ["Phone", "PhoneNumber", "SDT", "Sdt", "Mobile"]);
+        const list = document.getElementById("patientList");
+        list.innerHTML = "";
 
-    if (!idCol || !nameCol || !phoneCol)
-      throw new Error(`Thiếu cột ở ${patientsTable}. Có: ${cols.join(", ")}`);
+        if (res.length > 0) {
+            res[0].values.forEach(row => {
+                const li = document.createElement("li");
+                li.textContent = `${row[1]} - ${row[2]}`;
+                li.onclick = () => loadVisits(row[0]); // row[0] = PatientId
+                list.appendChild(li);
+            });
+        }
 
-    const sql = `SELECT ${idCol} AS ID, ${nameCol} AS Name, ${phoneCol} AS Phone
-                 FROM ${patientsTable}
-                 ORDER BY ${nameCol} COLLATE NOCASE`;
-
-    const stmt = database.prepare(sql);
-
-    const list = document.getElementById("patientList");
-    const visits = document.getElementById("visitsList");
-    const meds = document.getElementById("medicinesList");
-    list.innerHTML = "";
-    visits.innerHTML = "";
-    meds.innerHTML = "";
-
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      const li = document.createElement("li");
-      li.textContent = `${row.Name} - ${row.Phone}`;
-      li.onclick = () => loadVisits(row.ID);
-      list.appendChild(li);
+        logStatus("✅ Đã load danh sách bệnh nhân");
+    } catch (err) {
+        logStatus("❌ Lỗi loadPatients: " + err.message);
     }
-    stmt.free();
-
-    logStatus("✅ Đã load danh sách bệnh nhân");
-  } catch (e) {
-    logStatus("❌ Lỗi loadPatients: " + e.message);
-  }
 }
 
-// --- Search bệnh nhân theo tên/SĐT ---
+// 🔹 Search bệnh nhân theo tên hoặc SĐT
 async function searchPatients(keyword) {
-  const kw = (keyword || "").trim();
-  if (!kw) {
-    logStatus("⚠️ Nhập từ khóa để tìm kiếm!");
-    return;
-  }
-
-  try {
-    const database = await initDb();
-    const patientsTable = firstExistingTable(database, ["Patients", "Patient"]);
-    if (!patientsTable) throw new Error("Không tìm thấy bảng Patients!");
-
-    const cols = getTableColumns(database, patientsTable);
-    const idCol = findColumn(cols, ["ID", "Id", "PatientID", "PatientId"]);
-    const nameCol = findColumn(cols, ["Name", "FullName", "HoTen"]);
-    const phoneCol = findColumn(cols, ["Phone", "PhoneNumber", "SDT", "Sdt", "Mobile"]);
-
-    if (!idCol || !nameCol || !phoneCol)
-      throw new Error(`Thiếu cột ở ${patientsTable}. Có: ${cols.join(", ")}`);
-
-    const sql = `SELECT ${idCol} AS ID, ${nameCol} AS Name, ${phoneCol} AS Phone
-                 FROM ${patientsTable}
-                 WHERE ${nameCol} LIKE ? OR ${phoneCol} LIKE ?
-                 ORDER BY ${nameCol} COLLATE NOCASE`;
-
-    const stmt = database.prepare(sql);
-    stmt.bind([`%${kw}%`, `%${kw}%`]);
-
-    const list = document.getElementById("patientList");
-    const visits = document.getElementById("visitsList");
-    const meds = document.getElementById("medicinesList");
-    list.innerHTML = "";
-    visits.innerHTML = "";
-    meds.innerHTML = "";
-
-    let found = 0;
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      const li = document.createElement("li");
-      li.textContent = `${row.Name} - ${row.Phone}`;
-      li.onclick = () => loadVisits(row.ID);
-      list.appendChild(li);
-      found++;
+    if (!keyword) {
+        logStatus("⚠️ Nhập từ khóa để tìm kiếm!");
+        return;
     }
-    stmt.free();
 
-    logStatus(found ? `✅ Tìm thấy ${found} kết quả` : "⚠️ Không tìm thấy bệnh nhân nào");
-  } catch (e) {
-    logStatus("❌ Lỗi searchPatients: " + e.message);
-  }
+    try {
+        const database = await initDb();
+        const stmt = database.prepare("SELECT PatientId, FullName, Phone FROM Patients WHERE FullName LIKE ? OR Phone LIKE ?");
+        stmt.bind([`%${keyword}%`, `%${keyword}%`]);
+
+        const list = document.getElementById("patientList");
+        list.innerHTML = "";
+
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            const li = document.createElement("li");
+            li.textContent = `${row.FullName} - ${row.Phone}`;
+            li.onclick = () => loadVisits(row.PatientId);
+            list.appendChild(li);
+        }
+        stmt.free();
+
+        logStatus("✅ Tìm kiếm xong");
+    } catch (err) {
+        logStatus("❌ Lỗi searchPatients: " + err.message);
+    }
 }
 
-// --- Load lịch sử khám của bệnh nhân ---
+// 🔹 Load lịch sử khám của bệnh nhân
 async function loadVisits(patientId) {
-  try {
-    const database = await initDb();
+    try {
+        const database = await initDb();
+        const stmt = database.prepare("SELECT VisitId, VisitDate, Diagnosis FROM Visits WHERE PatientId = ? ORDER BY VisitDate DESC");
+        stmt.bind([patientId]);
 
-    const visitsTable = firstExistingTable(database, ["Visits", "Visit"]);
-    if (!visitsTable) throw new Error("Không tìm thấy bảng Visits!");
+        const list = document.getElementById("visitsList");
+        const meds = document.getElementById("medicinesList");
+        list.innerHTML = "";
+        meds.innerHTML = "";
 
-    const cols = getTableColumns(database, visitsTable);
-    const visitIdCol = findColumn(cols, ["VisitID", "Id", "ID"]);
-    const dateCol = findColumn(cols, ["Date", "VisitDate", "CreatedAt", "Ngay"]);
-    const patientIdCol = findColumn(cols, ["PatientID", "PatientId", "Patient_ID"]);
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            const li = document.createElement("li");
+            li.textContent = `Lần khám #${row.VisitId} - ${row.VisitDate} - ${row.Diagnosis}`;
+            li.onclick = () => loadMedicines(row.VisitId);
+            list.appendChild(li);
+        }
+        stmt.free();
 
-    if (!visitIdCol || !dateCol || !patientIdCol)
-      throw new Error(`Thiếu cột ở ${visitsTable}. Có: ${cols.join(", ")}`);
-
-    const sql = `SELECT ${visitIdCol} AS VisitID, ${dateCol} AS Date
-                 FROM ${visitsTable}
-                 WHERE ${patientIdCol} = ?
-                 ORDER BY ${dateCol} DESC`;
-
-    const stmt = database.prepare(sql);
-    stmt.bind([patientId]);
-
-    const list = document.getElementById("visitsList");
-    const meds = document.getElementById("medicinesList");
-    list.innerHTML = "";
-    meds.innerHTML = "";
-
-    let have = 0;
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      const dateOnly = String(row.Date).split(/[ T]/)[0]; // cắt phần giây
-      const li = document.createElement("li");
-      li.textContent = `Lần khám #${row.VisitID} - ${dateOnly}`;
-      li.onclick = () => loadMedicines(row.VisitID);
-      list.appendChild(li);
-      have++;
+        logStatus("✅ Đã load lịch sử khám");
+    } catch (err) {
+        logStatus("❌ Lỗi loadVisits: " + err.message);
     }
-    stmt.free();
-
-    logStatus(have ? "✅ Đã load lịch sử khám" : "⚠️ Không có lịch sử khám");
-  } catch (e) {
-    logStatus("❌ Lỗi loadVisits: " + e.message);
-  }
 }
 
-// --- Load thuốc theo lần khám ---
+// 🔹 Load thuốc theo Visit
 async function loadMedicines(visitId) {
-  try {
-    const database = await initDb();
+    try {
+        const database = await initDb();
+        const sql = `
+            SELECT m.Name, vm.Dosage, vm.Quantity, vm.PriceAtDispense, u.Instruction
+            FROM VisitMedications vm
+            JOIN Medications m ON vm.MedicationId = m.MedicationId
+            LEFT JOIN UsageInstructions u ON vm.UsageInstructionId = u.UsageInstructionId
+            WHERE vm.VisitId = ?
+        `;
+        const stmt = database.prepare(sql);
+        stmt.bind([visitId]);
 
-    // tìm tên bảng kê thuốc
-    const presTable = firstExistingTable(database, [
-      "Prescriptions",
-      "PrescriptionItems",
-      "VisitMedications",
-      "Medications",
-    ]);
-    if (!presTable) throw new Error("Không tìm thấy bảng đơn thuốc/thuốc!");
+        const list = document.getElementById("medicinesList");
+        list.innerHTML = "";
 
-    const cols = getTableColumns(database, presTable);
-    const visitIdCol = findColumn(cols, ["VisitID", "VisitId", "Visit_ID"]);
-    const medCol = findColumn(cols, ["Medicine", "DrugName", "Medication", "MedicineName", "Name", "TenThuoc"]);
-    const priceCol = findColumn(cols, ["Price", "Cost", "Gia", "Amount", "ThanhTien", "Total", "Money"]);
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            const li = document.createElement("li");
+            li.textContent = `${row.Name} - SL: ${row.Quantity} - Liều: ${row.Dosage} - Giá: ${row.PriceAtDispense}₫ - Cách dùng: ${row.Instruction || ""}`;
+            list.appendChild(li);
+        }
+        stmt.free();
 
-    if (!visitIdCol)
-      throw new Error(`Thiếu cột liên kết VisitID ở ${presTable}. Có: ${cols.join(", ")}`);
-
-    const list = document.getElementById("medicinesList");
-    list.innerHTML = "";
-
-    let sql, stmt;
-
-    if (medCol && priceCol) {
-      sql = `SELECT ${medCol} AS Medicine, ${priceCol} AS Price
-             FROM ${presTable}
-             WHERE ${visitIdCol} = ?`;
-      stmt = database.prepare(sql);
-      stmt.bind([visitId]);
-
-      let have = 0;
-      while (stmt.step()) {
-        const row = stmt.getAsObject();
-        const li = document.createElement("li");
-        li.textContent = `${row.Medicine} - ${row.Price}₫`;
-        list.appendChild(li);
-        have++;
-      }
-      stmt.free();
-
-      logStatus(have ? "✅ Đã load thuốc" : "⚠️ Không có thuốc cho lần khám này");
-    } else {
-      // fallback: show toàn bộ dòng (nếu không đoán được cột)
-      sql = `SELECT * FROM ${presTable} WHERE ${visitIdCol} = ?`;
-      stmt = database.prepare(sql);
-      stmt.bind([visitId]);
-      let have = 0;
-      while (stmt.step()) {
-        const obj = stmt.getAsObject();
-        const li = document.createElement("li");
-        li.textContent = JSON.stringify(obj);
-        list.appendChild(li);
-        have++;
-      }
-      stmt.free();
-      logStatus(have ? "ℹ️ Không xác định cột thuốc/giá, hiển thị thô." : "⚠️ Không có dữ liệu thuốc.");
+        logStatus("✅ Đã load thuốc cho lần khám");
+    } catch (err) {
+        logStatus("❌ Lỗi loadMedicines: " + err.message);
     }
-  } catch (e) {
-    logStatus("❌ Lỗi loadMedicines: " + e.message);
-  }
 }
