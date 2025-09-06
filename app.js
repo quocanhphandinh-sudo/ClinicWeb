@@ -1,4 +1,11 @@
 let db = null;
+const statusDiv = () => document.getElementById("status");
+
+// 🔹 Log ra status + console
+function logStatus(msg) {
+    console.log(msg);
+    if (statusDiv()) statusDiv().innerText = msg;
+}
 
 // 🔹 Hàm load file .db mới nhất từ GitHub
 async function fetchLatestDbUrl() {
@@ -13,116 +20,112 @@ async function fetchLatestDbUrl() {
     });
 
     if (!response.ok) {
-        throw new Error("Không lấy được danh sách file DB từ GitHub!");
+        throw new Error("❌ Không lấy được danh sách file DB từ GitHub!");
     }
 
     const files = await response.json();
-
-    // Lọc file có dạng clinic_YYYYMMDD_HHmmss.db
     const dbFiles = files
         .map(f => f.name)
         .filter(name => /^clinic_\d{8}_\d{6}\.db$/.test(name));
 
     if (dbFiles.length === 0) {
-        throw new Error("Không tìm thấy file .db trong thư mục data/");
+        throw new Error("❌ Không tìm thấy file .db trong thư mục data/");
     }
 
-    // Sắp xếp giảm dần → lấy file mới nhất
     dbFiles.sort((a, b) => b.localeCompare(a));
     const latestFile = dbFiles[0];
 
     return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}/${latestFile}`;
 }
 
-// 🔹 Hàm khởi tạo DB (chỉ load 1 lần)
+// 🔹 Hàm khởi tạo DB
 async function initDb() {
     if (db) return db;
 
-    const SQL = await initSqlJs({
-        locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.wasm`
-    });
+    try {
+        const SQL = await initSqlJs({
+            locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.wasm`
+        });
 
-    const dbUrl = await fetchLatestDbUrl();
-    console.log("📂 Đang load DB:", dbUrl);
+        const dbUrl = await fetchLatestDbUrl();
+        logStatus("📂 Đang load DB: " + dbUrl);
 
-    const response = await fetch(dbUrl);
-    const buffer = await response.arrayBuffer();
-    db = new SQL.Database(new Uint8Array(buffer));
+        const response = await fetch(dbUrl);
+        if (!response.ok) throw new Error("❌ Không tải được file DB từ GitHub Raw!");
 
-    return db;
+        const buffer = await response.arrayBuffer();
+        db = new SQL.Database(new Uint8Array(buffer));
+
+        logStatus("✅ DB đã load thành công!");
+        return db;
+    } catch (err) {
+        logStatus("❌ Lỗi initDb: " + err.message);
+        throw err;
+    }
+}
+
+// 🔹 Test load DB
+async function testDb() {
+    try {
+        const database = await initDb();
+        const res = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
+        logStatus("📋 Các bảng: " + res[0].values.map(r => r[0]).join(", "));
+    } catch (err) {
+        logStatus("❌ Test DB lỗi: " + err.message);
+    }
 }
 
 // 🔹 Load toàn bộ bệnh nhân
 async function loadPatients() {
-    const database = await initDb();
-    const res = database.exec("SELECT * FROM Patients");
-    if (res.length === 0) return;
+    try {
+        const database = await initDb();
+        const res = database.exec("SELECT * FROM Patients");
+        if (res.length === 0) {
+            logStatus("⚠️ Không có dữ liệu trong bảng Patients");
+            return;
+        }
 
-    const list = document.getElementById("patientList");
-list.innerHTML = "";
+        const list = document.getElementById("patientList");
+        list.innerHTML = "";
 
-res[0].values.forEach(row => {
-    const li = document.createElement("li");
-    li.textContent = `${row[1]} - ${row[2]} - ${row[3]}`;
-    li.onclick = () => loadVisits(row[0]);
-    list.appendChild(li);
-});
-}
-
-// 🔹 Search bệnh nhân theo tên hoặc SĐT
-async function searchPatients(keyword) {
-    const database = await initDb();
-    const stmt = database.prepare("SELECT * FROM Patients WHERE Name LIKE ? OR Phone LIKE ?");
-    stmt.bind([`%${keyword}%`, `%${keyword}%`]);
-
-    const table = document.getElementById("patientsTable");
-    table.innerHTML = "";
-
-    while (stmt.step()) {
-        const row = stmt.getAsObject();
-        const tr = document.createElement("tr");
-        Object.values(row).forEach(cell => {
-            const td = document.createElement("td");
-            td.textContent = cell;
-            tr.appendChild(td);
+        res[0].values.forEach(row => {
+            const li = document.createElement("li");
+            li.textContent = `${row[1]} - ${row[2]} - ${row[3]}`;
+            li.onclick = () => loadVisits(row[0]);
+            list.appendChild(li);
         });
-        table.appendChild(tr);
+
+        logStatus("✅ Đã load danh sách bệnh nhân");
+    } catch (err) {
+        logStatus("❌ Lỗi loadPatients: " + err.message);
     }
-    stmt.free();
 }
 
-// 🔹 Load lịch sử khám của bệnh nhân
-async function loadVisits(patientId) {
-    const database = await initDb();
-    const stmt = database.prepare("SELECT VisitID, Date FROM Visits WHERE PatientID = ?");
-    stmt.bind([patientId]);
-
-    const list = document.getElementById("visitsList");
-    list.innerHTML = "";
-
-    while (stmt.step()) {
-        const row = stmt.getAsObject();
-        const li = document.createElement("li");
-        li.textContent = `Lần khám #${row.VisitID} - ${row.Date}`;
-        list.appendChild(li);
+// 🔹 Search bệnh nhân
+async function searchPatients(keyword) {
+    if (!keyword) {
+        logStatus("⚠️ Nhập từ khóa để tìm kiếm!");
+        return;
     }
-    stmt.free();
-}
 
-// 🔹 Load thuốc đã kê theo Visit
-async function loadMedicines(visitId) {
-    const database = await initDb();
-    const stmt = database.prepare("SELECT Medicine, Price FROM Prescriptions WHERE VisitID = ?");
-    stmt.bind([visitId]);
+    try {
+        const database = await initDb();
+        const stmt = database.prepare("SELECT * FROM Patients WHERE Name LIKE ? OR Phone LIKE ?");
+        stmt.bind([`%${keyword}%`, `%${keyword}%`]);
 
-    const list = document.getElementById("medicinesList");
-    list.innerHTML = "";
+        const table = document.getElementById("patientList");
+        table.innerHTML = "";
 
-    while (stmt.step()) {
-        const row = stmt.getAsObject();
-        const li = document.createElement("li");
-        li.textContent = `${row.Medicine} - ${row.Price}₫`;
-        list.appendChild(li);
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            const li = document.createElement("li");
+            li.textContent = `${row.ID} - ${row.Name} - ${row.Phone}`;
+            table.appendChild(li);
+        }
+        stmt.free();
+
+        logStatus("✅ Tìm kiếm xong");
+    } catch (err) {
+        logStatus("❌ Lỗi searchPatients: " + err.message);
     }
-    stmt.free();
 }
