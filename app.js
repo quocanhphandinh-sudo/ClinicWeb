@@ -182,7 +182,7 @@ async function loadVisits(patientId) {
             }
 
             const li = document.createElement("li");
-            li.textContent = `Lần khám #${row.VisitId} - ${formattedDate} - ${row.Diagnosis} - Tổng tiền thuốc: ${row.MedicationsTotal}`;
+            li.textContent = `${formattedDate} - ${row.Diagnosis} - Tổng tiền thuốc: ${row.MedicationsTotal}`;
             li.onclick = () => loadMedicines(row.VisitId);
             list.appendChild(li);
         }
@@ -193,6 +193,7 @@ async function loadVisits(patientId) {
         logStatus("❌ Lỗi loadVisits: " + err.message);
     }
 }
+
 
 
 // 🔹 Load thuốc theo Visit
@@ -223,7 +224,7 @@ async function loadMedicines(visitId) {
             found = true;
             const row = stmt.getAsObject();
             const li = document.createElement("li");
-            li.textContent = `${row.MedName} - SL: ${row.Quantity} - Liều: ${row.Dosage} - Giá: ${row.PriceAtDispense || 0}₫ - Cách dùng: ${row.Instruction || ""}`;
+            li.textContent = `${row.MedName} - SL: ${row.Quantity} - Liều: ${row.Dosage} - Giá: ${row.PriceAtDispense || 0}₫ - CD: ${row.Instruction || ""}`;
             list.appendChild(li);
         }
         stmt.free();
