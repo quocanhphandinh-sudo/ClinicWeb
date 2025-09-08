@@ -165,8 +165,24 @@ async function loadVisits(patientId) {
 
         while (stmt.step()) {
             const row = stmt.getAsObject();
+            const rawDate = row.VisitDate;
+            
+            // Xử lý chuỗi ngày giờ để chỉ lấy định dạng dd/mm/yy
+            let formattedDate = 'Không xác định';
+            if (rawDate) {
+                // Tách ngày và giờ
+                const datePart = rawDate.split(' ')[0];
+                const parts = datePart.split('-');
+                if (parts.length === 3) {
+                    const year = parts[0];
+                    const month = parts[1];
+                    const day = parts[2];
+                    formattedDate = `${day}/${month}/${year.substring(2)}`;
+                }
+            }
+
             const li = document.createElement("li");
-            li.textContent = `Lần khám #${row.VisitId} - ${row.VisitDate} - ${row.Diagnosis}`;
+            li.textContent = `Lần khám #${row.VisitId} - ${formattedDate} - ${row.Diagnosis}`;
             li.onclick = () => loadMedicines(row.VisitId);
             list.appendChild(li);
         }
