@@ -155,7 +155,7 @@ async function searchPatients(keyword) {
 async function loadVisits(patientId) {
     try {
         const database = await initDb();
-        const stmt = database.prepare("SELECT VisitId, VisitDate, Diagnosis FROM Visits WHERE PatientId = ? ORDER BY VisitDate DESC");
+        const stmt = database.prepare("SELECT VisitId, VisitDate, Diagnosis, MedicationsTotal FROM Visits WHERE PatientId = ? ORDER BY VisitDate DESC");
         stmt.bind([patientId]);
 
         const list = document.getElementById("visitsList");
@@ -182,7 +182,7 @@ async function loadVisits(patientId) {
             }
 
             const li = document.createElement("li");
-            li.textContent = `Lần khám #${row.VisitId} - ${formattedDate} - ${row.Diagnosis}`;
+            li.textContent = `Lần khám #${row.VisitId} - ${formattedDate} - ${row.Diagnosis} - Tổng tiền thuốc: ${row.MedicationsTotal}`;
             li.onclick = () => loadMedicines(row.VisitId);
             list.appendChild(li);
         }
@@ -193,6 +193,7 @@ async function loadVisits(patientId) {
         logStatus("❌ Lỗi loadVisits: " + err.message);
     }
 }
+
 
 // 🔹 Load thuốc theo Visit
 async function loadMedicines(visitId) {
